@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ava - Aviation AI Assistant</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Marked.js for Markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        /* Styling for AI Markdown tables and text */
+        table { border-collapse: collapse; width: 100%; margin-top: 10px; margin-bottom: 10px; }
+        th, td { border: 1px solid #e5e7eb; padding: 10px; text-align: left; }
+        th { background-color: #f8fafc; font-weight: 600; color: #1e293b; }
+        strong { color: #0f172a; font-weight: 600; }
+        ul { list-style-type: disc; padding-left: 20px; margin-top: 8px; margin-bottom: 8px; }
+    </style>
+</head>
+<body class="bg-slate-100 h-screen flex flex-col p-4 md:p-8 font-sans">
+
+    <div class="max-w-4xl w-full mx-auto bg-white rounded-2xl shadow-xl flex flex-col h-full overflow-hidden border border-gray-100">
+        
+        <!-- Header -->
+        <div class="bg-slate-900 text-white p-5 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-xl">
+                ✈️
+            </div>
+            <div>
+                <h1 class="text-xl font-bold tracking-wide">Ava</h1>
+                <p class="text-xs text-slate-400">Intelligent Aviation Assistant</p>
+            </div>
+        </div>
+
+        <!-- Chat History Area -->
+        <div id="chat-box" class="flex-1 p-6 overflow-y-auto space-y-6 bg-slate-50">
+            
+            <!-- DEFAULT WELCOME MESSAGE -->
+            <div class="flex justify-start">
+                <div class="bg-white border border-gray-200 text-slate-800 p-4 rounded-2xl rounded-tl-none max-w-[85%] shadow-sm leading-relaxed">
+                    <p>Hello! I'm <strong>Ava</strong>, your Aviation AI Assistant. 👋</p>
+                    <p class="mt-2 text-slate-600">How can I assist you today?</p>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Input Area -->
+        <div class="p-4 bg-white border-t border-gray-100">
+            <div class="flex gap-2 relative">
+                <input type="text" id="user-input" 
+                    class="flex-1 p-4 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white transition-all pr-16" 
+                    placeholder="Ask Ava about flights or revenue..."
+                    onkeypress="if(event.key === 'Enter') sendMessage()">
+                
+                <button onclick="sendMessage()" 
+                    class="absolute right-2 top-2 bottom-2 px-5 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5">
+                        <path d="M3.478 2.404a.75.75 0 00-.926.941l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.404z" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let chatHistory = [];
+
+        async function sendMessage() {
+            const inputField = document.getElementById('user-input');
+            const chatBox = document.getElementById('chat-box');
+            const userText = inputField.value.trim();
+            if (!userText) return;
+
+            // 1. Show User Message
+            chatBox.innerHTML += `
+                <div class="flex justify-end">
+                    <div class="bg-blue-600 text-white p-4 rounded-2xl rounded-tr-none max-w-[85%] shadow-sm">
+                        ${userText}
+                    </div>
+                </div>`;
+            inputField.value = '';
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            // 2. Add Animated "Ava is typing..." Indicator
+            const loadingId = "loading-" + Date.now();
+            chatBox.innerHTML += `
+                <div id="${loadingId}" class="flex justify-start">
+                    <div class="bg-white border border-gray-200 p-4 rounded-2xl rounded-tl-none shadow-sm flex space-x-2 items-center h-12">
+                        <div class="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></div>
+                        <div class="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style="animation-delay: 0.15s"></div>
+                        <div class="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style="animation-delay: 0.3s"></div>
+                    </div>
+                </div>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            try {
+                // 3. Send request to FastAPI
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        user_query: userText,
+                        history: chatHistory 
+                    })
+                });
+
+                const data = await response.json();
+                
+                // Remove the typing indicator
+                document.getElementById(loadingId).remove();
+
+                // 4. Update Chat History array for context
+                chatHistory.push({ role: "user", content: userText });
+                chatHistory.push({ role: "assistant", content: data.explanation });
+
+                // 5. Render Ava's Response (Parsed Markdown)
+                const parsedMarkdown = marked.parse(data.explanation || data.detail);
+                
+                chatBox.innerHTML += `
+                    <div class="flex justify-start">
+                        <div class="bg-white border border-gray-200 text-slate-800 p-4 rounded-2xl rounded-tl-none max-w-[90%] md:max-w-[85%] shadow-sm leading-relaxed">
+                            <div class="prose prose-sm">${parsedMarkdown}</div>
+                        </div>
+                    </div>`;
+                
+                chatBox.scrollTop = chatBox.scrollHeight;
+
+            } catch (error) {
+                document.getElementById(loadingId).innerHTML = `<span class="text-red-500 text-sm">❌ Error connecting to Ava. Is the server running?</span>`;
+            }
+        }
+    </script>
+</body>
+</html>
