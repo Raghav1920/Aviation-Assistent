@@ -116,7 +116,7 @@ def handle_general_query(user_query: str) -> str:
     """
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
     response = client.models.generate_content(
-        model='gemini-2.5-flash', 
+        model='gemini-3.1-flash-lite-preview', 
         contents=prompt, 
         config=types.GenerateContentConfig(temperature=0.0) # Lowered temp so it never breaks the rules
     )
@@ -159,7 +159,7 @@ def generate_sql(user_query: str, intent: str, history: list) -> dict:
     
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
     response = client.models.generate_content(
-        model='gemini-2.5-flash', 
+        model='gemini-3.1-flash-lite-preview', 
         contents=prompt,
         config=types.GenerateContentConfig(temperature=0.0, response_mime_type="application/json")
     )
@@ -198,7 +198,7 @@ def synthesize_data(user_query: str, sql_data: list, intent: str) -> str:
     
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
     response = client.models.generate_content(
-        model='gemini-2.5-flash', 
+        model='gemini-3.1-flash-lite-preview', 
         contents=prompt, 
         config=types.GenerateContentConfig(temperature=0.3) # 0.3 allows it to be creative with the weather context
     )
