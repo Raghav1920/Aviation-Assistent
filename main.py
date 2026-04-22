@@ -94,12 +94,20 @@ def route_intent(user_query: str) -> str:
     Output ONLY one word: "GENERAL", "FLIGHT_SEARCH", or "FINANCIAL_ANALYSIS".
     """
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-    response = client.models.generate_content(
-        model='gemini-3.1-flash-lite-preview',
-        contents=prompt,
-        config=types.GenerateContentConfig(temperature=0.0)
-    )
-    return response.text.strip().upper()
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model='gemini-3.1-flash-lite-preview',
+                contents=prompt,
+                config=types.GenerateContentConfig(temperature=0.0)
+            )
+            return response.text.strip().upper()
+        except Exception:
+            if attempt < 2:
+                import time
+                time.sleep(1)
+                continue
+            return "GENERAL" # Fallback
 
 # --- AGENT 2: General Knowledge Base ---
 def handle_general_query(user_query: str) -> str:
@@ -115,12 +123,22 @@ def handle_general_query(user_query: str) -> str:
     4. If they say hello, politely greet them and explain your aviation capabilities.
     """
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-    response = client.models.generate_content(
-        model='gemini-3.1-flash-lite-preview', 
-        contents=prompt, 
-        config=types.GenerateContentConfig(temperature=0.0) # Lowered temp so it never breaks the rules
-    )
-    return response.text.strip()
+    
+    # Retry logic for 503 errors
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model='gemini-3.1-flash-lite-preview', 
+                contents=prompt, 
+                config=types.GenerateContentConfig(temperature=0.0)
+            )
+            return response.text.strip()
+        except Exception as e:
+            if "503" in str(e) and attempt < 2:
+                import time
+                time.sleep(1)
+                continue
+            return "I'm currently experiencing high demand. Please try again in a moment."
 
 # --- AGENT 3: SQL Expert ---
 def generate_sql(user_query: str, intent: str, history: list) -> dict:
@@ -158,11 +176,23 @@ def generate_sql(user_query: str, intent: str, history: list) -> dict:
     """
     
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-    response = client.models.generate_content(
-        model='gemini-3.1-flash-lite-preview', 
-        contents=prompt,
-        config=types.GenerateContentConfig(temperature=0.0, response_mime_type="application/json")
-    )
+    
+    raw_text = ""
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model='gemini-3.1-flash-lite-preview', 
+                contents=prompt,
+                config=types.GenerateContentConfig(temperature=0.0, response_mime_type="application/json")
+            )
+            raw_text = response.text.strip()
+            break
+        except Exception:
+            if attempt < 2:
+                import time
+                time.sleep(1)
+                continue
+            raise ValueError("Aviation API is busy. Please try again.")
     
     try:
         raw_text = response.text.strip()
@@ -197,12 +227,20 @@ def synthesize_data(user_query: str, sql_data: list, intent: str) -> str:
     """
     
     client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-    response = client.models.generate_content(
-        model='gemini-3.1-flash-lite-preview', 
-        contents=prompt, 
-        config=types.GenerateContentConfig(temperature=0.3) # 0.3 allows it to be creative with the weather context
-    )
-    return response.text.strip()
+    for attempt in range(3):
+        try:
+            response = client.models.generate_content(
+                model='gemini-3.1-flash-lite-preview', 
+                contents=prompt, 
+                config=types.GenerateContentConfig(temperature=0.3)
+            )
+            return response.text.strip()
+        except Exception:
+            if attempt < 2:
+                import time
+                time.sleep(1)
+                continue
+            return "The data was retrieved successfully, but I'm having trouble summarizing it right now. Please try your search one more time."
 
 # --- Orchestrator API Endpoint ---
 @app.post("/chat", response_model=ChatResponse)

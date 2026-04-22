@@ -105,17 +105,21 @@
                     })
                 });
 
+                if (!response.ok) {
+                    throw new Error("Server responded with " + response.status);
+                }
+
                 const data = await response.json();
                 
                 // Remove the typing indicator
                 document.getElementById(loadingId).remove();
 
-                // 4. Update Chat History array for context
+                // 4. Update Chat History array (only on success!)
                 chatHistory.push({ role: "user", content: userText });
                 chatHistory.push({ role: "assistant", content: data.explanation });
 
-                // 5. Render Ava's Response (Parsed Markdown)
-                const parsedMarkdown = marked.parse(data.explanation || data.detail);
+                // 5. Render Ava's Response
+                const parsedMarkdown = marked.parse(data.explanation);
                 
                 chatBox.innerHTML += `
                     <div class="flex justify-start">
